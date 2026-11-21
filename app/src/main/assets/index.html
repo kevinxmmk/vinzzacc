@@ -44,31 +44,39 @@ button{touch-action:manipulation;cursor:pointer}
 
 .workspace{flex:1;min-height:0;display:flex;position:relative;overflow:hidden}
 
-/* PLAYLIST / ARRANGEMENT VIEW (DEFAULT HOME) */
+/* PLAYLIST / ARRANGEMENT VIEW */
 .playlist-view{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--bg);position:relative;contain:strict}
 .pl-scroll{flex:1;min-height:0;overflow:auto;position:relative;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
-.pl-inner{position:relative;min-width:100%;min-height:100%;padding-bottom:90px}
+.pl-inner{position:relative;min-width:100%;min-height:100%;padding-bottom:96px}
 .pl-ruler{
   position:sticky;top:0;z-index:6;height:22px;background:var(--ruler);border-bottom:1px solid var(--line);
-  display:flex;align-items:center;padding-left:62px;
+  display:flex;align-items:center;padding-left:64px;
 }
 .pl-ruler-corner{
-  position:fixed;left:env(safe-area-inset-left,0px);width:62px;height:22px;background:var(--ruler);
+  position:fixed;left:env(safe-area-inset-left,0px);width:64px;height:22px;background:var(--ruler);
   border-right:1px solid var(--line);border-bottom:1px solid var(--line);z-index:7;
   display:flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:800;color:var(--muted);
 }
 .pl-row{height:54px;display:flex;border-bottom:1px solid var(--grid);position:relative}
+.pl-row.master-row{height:44px;background:#181c22;border-bottom:2px solid var(--line)}
 .pl-head{
-  position:sticky;left:0;z-index:5;width:62px;height:53px;background:var(--panel);
+  position:sticky;left:0;z-index:5;width:64px;height:53px;background:var(--panel);
   border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;
   padding:2px;flex:none;
 }
+.pl-row.master-row .pl-head{height:42px;background:#1f242d}
 .pl-head.active{background:var(--fl-green);color:#111d05}
 .pl-head.active .pl-name{color:#111d05}
 .pl-head.muted{opacity:.4}
-.pl-ico{font-size:15px;line-height:1}
-.pl-name{font-size:9px;font-weight:800;margin-top:3px;max-width:56px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--fg)}
+.pl-ico{font-size:14px;line-height:1}
+.pl-name{font-size:9px;font-weight:800;margin-top:3px;max-width:58px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--fg)}
 .pl-lane{flex:1;position:relative;height:53px;background-image:linear-gradient(to right,var(--gridBar) 1px,transparent 1px),linear-gradient(to right,var(--grid) 1px,transparent 1px)}
+.pl-row.master-row .pl-lane{height:42px;display:flex;align-items:center;padding-left:10px}
+
+/* MASTER METER BAR */
+.master-meter-wrap{position:sticky;left:74px;display:flex;align-items:center;gap:8px;pointer-events:none}
+.master-meter-bg{width:130px;height:8px;background:#111419;border-radius:4px;overflow:hidden;border:1px solid var(--line)}
+.master-meter-fill{height:100%;width:0%;background:linear-gradient(90deg,#8ce63c,#facc15,#ff4d5e);transition:width .06s linear}
 
 /* FL STUDIO MOBILE CLIPS + HANDLES + FLOATING ACTION BUBBLES */
 .fl-clip{
@@ -76,7 +84,7 @@ button{touch-action:manipulation;cursor:pointer}
   background:var(--fl-lime);color:var(--fl-clip-txt);border:1.5px solid rgba(0,0,0,.4);
   display:flex;flex-direction:column;cursor:pointer;
 }
-.fl-clip.audio{background:var(--fl-green)}
+.fl-clip.audio{background:#4ade80}
 .fl-clip.selected{
   border:2px solid #fff;
   box-shadow:0 0 0 2px rgba(255,255,255,.35),0 4px 12px rgba(0,0,0,.5);
@@ -91,7 +99,6 @@ button{touch-action:manipulation;cursor:pointer}
 .fl-clip-title{font-size:9.5px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .fl-clip canvas{width:100%;height:24px;margin-top:2px;display:block;pointer-events:none}
 
-/* Floating Circle Action Menu (Copy, Cut, Delete, Snap, Edit) */
 .clip-bubbles{
   position:absolute;z-index:20;display:flex;align-items:center;gap:6px;
   pointer-events:auto;
@@ -106,10 +113,9 @@ button{touch-action:manipulation;cursor:pointer}
 .c-bub.edit-bub{background:var(--fl-green);color:#111d05}
 .c-bub.del-bub{background:#ff5c6c;color:#fff}
 
-/* Big Center '+' Button for Adding Channel / Sample */
 .pl-center-add{
   display:flex;flex-direction:column;align-items:center;justify-content:center;
-  padding:22px 0 12px;position:sticky;left:0;width:100%;
+  padding:20px 0 12px;position:sticky;left:0;width:100%;
 }
 .big-plus-btn{
   width:48px;height:48px;border-radius:50%;background:#d8dee9;color:#1c2026;
@@ -117,36 +123,36 @@ button{touch-action:manipulation;cursor:pointer}
   box-shadow:0 4px 14px rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;
 }
 .big-plus-btn:active{transform:scale(.93);background:var(--fl-green)}
-.big-plus-lbl{font-size:10.5px;color:var(--muted);margin-top:6px;font-weight:600}
+.big-plus-lbl{font-size:10.5px;color:var(--muted);margin-top:6px;font-weight:600;text-align:center;padding:0 12px}
 
 .pl-playhead{
-  position:absolute;top:0;bottom:0;left:62px;width:2px;background:#fff;z-index:8;pointer-events:none;
+  position:absolute;top:0;bottom:0;left:64px;width:2px;background:#fff;z-index:8;pointer-events:none;
   will-change:transform;
 }
 
 /* PIANO ROLL VIEW */
 .roll-view{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--rowB);position:relative;contain:strict}
-.roll-view[hidden],.playlist-view[hidden],.kbd-wrap[hidden],.clip-bubbles[hidden],#rollTools[hidden],#backToPl[hidden]{display:none!important}
+.roll-view[hidden],.playlist-view[hidden],.kbd-wrap[hidden],#rollTools[hidden],#backToPl[hidden]{display:none!important}
 .grid{flex:1;min-height:0;overflow:auto;position:relative;overscroll-behavior:contain}
 .sizer{position:relative}
 .grid canvas{position:sticky;top:0;left:0;display:block;touch-action:none}
 
-/* ON-SCREEN KEYBOARD */
-.kbd-wrap{height:72px;background:#111419;border-top:2px solid var(--line);display:flex;flex-direction:column;flex:none;z-index:9}
+/* ON-SCREEN KEYBOARD (MULTI-TOUCH + SLIDE) */
+.kbd-wrap{height:76px;background:#111419;border-top:2px solid var(--line);display:flex;flex-direction:column;flex:none;z-index:9}
 .kbd-bar{height:20px;background:var(--ruler);display:flex;align-items:center;justify-content:space-between;padding:0 8px;font-size:10px;color:var(--muted);border-bottom:1px solid var(--line)}
-.kbd-keys{flex:1;display:flex;position:relative;padding:2px 4px;gap:2px}
+.kbd-keys{flex:1;display:flex;position:relative;padding:2px 4px;gap:2px;touch-action:none}
 .k-white{
   flex:1;background:linear-gradient(180deg,#f5f7fa,#dce1e8);border:1px solid #8a94a6;
   border-radius:0 0 5px 5px;color:#1b2029;font-size:9px;font-weight:800;
-  display:flex;align-items:flex-end;justify-content:center;padding-bottom:3px;
+  display:flex;align-items:flex-end;justify-content:center;padding-bottom:3px;pointer-events:none;
 }
-.k-white:active,.k-white.pressed{background:var(--fl-green);color:#0d1a04}
+.k-white.pressed{background:var(--fl-green);color:#0d1a04}
 .k-black{
-  width:18px;height:60%;background:linear-gradient(180deg,#2c323d,#14171d);border:1px solid #000;
+  width:19px;height:60%;background:linear-gradient(180deg,#2c323d,#14171d);border:1px solid #000;
   border-radius:0 0 4px 4px;color:#cfd6e3;font-size:7.5px;font-weight:700;
-  position:absolute;top:2px;z-index:2;display:flex;align-items:flex-end;justify-content:center;padding-bottom:2px;
+  position:absolute;top:2px;z-index:2;display:flex;align-items:flex-end;justify-content:center;padding-bottom:2px;pointer-events:none;
 }
-.k-black:active,.k-black.pressed{background:var(--accent);color:#fff}
+.k-black.pressed{background:var(--accent);color:#fff}
 
 /* RIGHT RACK DRAWER */
 .rack{
@@ -169,10 +175,10 @@ button{touch-action:manipulation;cursor:pointer}
 .plug-sub{font-size:10px;color:var(--muted);margin-top:1px}
 
 .sample-item{
-  display:flex;align-items:center;justify-content:space-between;gap:6px;padding:7px 9px;
+  display:flex;align-items:center;justify-content:space-between;gap:5px;padding:7px 8px;
   background:var(--panel2);border:1px solid var(--line);border-radius:7px;margin-bottom:5px;
 }
-.sample-name{font-size:11.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.sample-name{font-size:11px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
 
 .sec-title{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--fl-green);margin:11px 0 5px;font-weight:800}
 .sec-title:first-child{margin-top:3px}
@@ -252,7 +258,7 @@ textarea.out{width:100%;min-height:80px;background:var(--bg);border:1px solid va
   </header>
 
   <div class="workspace">
-    <!-- 1. PLAYLIST / ARRANGEMENT VIEW (DEFAULT HOME) -->
+    <!-- 1. PLAYLIST / ARRANGEMENT VIEW -->
     <section class="playlist-view" id="playlistView">
       <div class="pl-ruler-corner">TRACKS</div>
       <div class="pl-scroll" id="plScroll">
@@ -260,7 +266,7 @@ textarea.out{width:100%;min-height:80px;background:var(--bg);border:1px solid va
       </div>
     </section>
 
-    <!-- 2. PIANO ROLL VIEW (OPENED VIA 'EDIT' BUBBLE) -->
+    <!-- 2. PIANO ROLL VIEW -->
     <section class="roll-view" id="rollView" hidden>
       <div class="grid" id="grid">
         <div class="sizer" id="sizer"><canvas id="cv"></canvas></div>
@@ -286,7 +292,7 @@ textarea.out{width:100%;min-height:80px;background:var(--bg);border:1px solid va
   <!-- ON-SCREEN KEYBOARD -->
   <div class="kbd-wrap" id="kbdWrap" hidden>
     <div class="kbd-bar">
-      <span>KEYBOARD LIVE</span>
+      <span>KEYBOARD LIVE (MULTI-TOUCH &amp; GLIDE)</span>
       <div>
         <button class="mini-btn" id="kbdOctDown" style="height:18px;padding:0 6px;font-size:10px">Oct −</button>
         <span id="kbdOctLbl" style="margin:0 6px;font-weight:700;color:#fff">C4</span>
@@ -308,7 +314,7 @@ textarea.out{width:100%;min-height:80px;background:var(--bg);border:1px solid va
       <button class="t-btn" id="metro" aria-pressed="false">M<small>METRO</small></button>
       <button class="t-btn" id="loop" aria-pressed="false">🔁<small>LOOP</small></button>
       <button class="t-btn" id="undo" disabled>↩<small>UNDO</small></button>
-      <button class="t-btn" id="quickAddSample" style="border-color:var(--fl-green);color:var(--fl-green)">+<small>SAMPLE</small></button>
+      <button class="t-btn" id="quickAddSample" style="border-color:var(--fl-green);color:var(--fl-green)">+<small>AUDIO</small></button>
     </div>
   </footer>
 </div>
@@ -358,18 +364,4 @@ function writeMidi(tracks,bpm){
     pushAll(t2,meta(0,3,ascii(tr.name||'Track')));
     t2.push(0,0xC0|c,tr.inst==='piano'?0:53);
     let last=0;
-    ev.forEach(e=>{pushAll(t2,vlqBytes(e[0]-last));t2.push((e[1]?0x90:0x80)|c,e[2]&127,e[3]);last=e[0];});
-    pushAll(t2,meta(0,0x2F,[]));
-    pushAll(out,chunk(t2));
-  });
-  return Uint8Array.from(out);
-}
-
-function parseMidi(u8){
-  if(u8.length<14||String.fromCharCode(u8[0],u8[1],u8[2],u8[3])!=='MThd')throw new Error('Bukan file MIDI.');
-  const dv=new DataView(u8.buffer,u8.byteOffset,u8.byteLength);
-  const hl=dv.getUint32(4),ntr=dv.getUint16(10),div=dv.getUint16(12);
-  if(div&0x8000||div===0)throw new Error('Format MIDI tidak didukung.');
-  let pos=8+hl,bpm=null;
-  const out=[];
-  for(let ti=0;ti<ntr&&pos+8
+    ev.forEach(e=>{pushAll(t2,vlqBytes(e[0]-last));t2.push((e[1]?0x90:0x80)|c,e[2]&127,e[3]);last=e[0];}
