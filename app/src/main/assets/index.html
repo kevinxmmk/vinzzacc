@@ -681,7 +681,7 @@ window.onerror = function(msg, url, line) {
   /* ============ App State ============ */
   function $(s) { return document.querySelector(s); }
   var KEYW = 36, RULERH = 20, ROWH = 18;
-  var S = { bpm: 128, reverb: .22, master: .85, masterMute: false, cursor: 0, tracks: [] };
+  var S = { bpm: 128, reverb: .18, master: .78, masterMute: false, cursor: 0, tracks: [] };
   var audioStore = {};
   var uidSeq = 1;
   function nextUid() { return 'tr_' + (uidSeq++); }
@@ -701,13 +701,13 @@ window.onerror = function(msg, url, line) {
       name: name,
       inst: inst || 'vocal',
       vowel: vowel || 'a',
-      vol: .84,
+      vol: .68,
       mute: false,
       uni: 2,
       det: 8,
-      vib: 12,
-      breath: .25,
-      brightness: .7,
+      vib: 10,
+      breath: .08,
+      brightness: .65,
       audioOffset: 0,
       audioDurationBeats: 4,
       audioName: '',
@@ -760,14 +760,14 @@ window.onerror = function(msg, url, line) {
     clearTimeout(saveTimer);
     saveTimer = setTimeout(function() {
       try {
-        localStorage.setItem('melvox-flm-v6', JSON.stringify({ bpm: S.bpm, reverb: S.reverb, master: S.master, tracks: S.tracks }));
+        localStorage.setItem('melvox-flm-v7', JSON.stringify({ bpm: S.bpm, reverb: S.reverb, master: S.master, tracks: S.tracks }));
       } catch (e) {}
     }, 600);
   }
 
   function loadSaved() {
     try {
-      var raw = localStorage.getItem('melvox-flm-v6');
+      var raw = localStorage.getItem('melvox-flm-v7');
       if (!raw) return false;
       var o = JSON.parse(raw);
       if (!o || !Array.isArray(o.tracks) || !o.tracks.length) return false;
@@ -777,8 +777,8 @@ window.onerror = function(msg, url, line) {
 
   function applyProject(o) {
     S.bpm = Math.max(40, Math.min(220, +o.bpm || 128));
-    S.reverb = o.reverb != null ? +o.reverb : .22;
-    S.master = o.master != null ? +o.master : .85;
+    S.reverb = o.reverb != null ? +o.reverb : .18;
+    S.master = o.master != null ? +o.master : .78;
     S.tracks = o.tracks.slice(0, 12).map(function(t, i) {
       var base = newTrack(t.name || ('Track ' + (i + 1)), VOWELS[t.vowel] ? t.vowel : 'a', [], t.inst || 'vocal');
       var merged = Object.assign(base, t);
@@ -811,11 +811,16 @@ window.onerror = function(msg, url, line) {
     return chain.then(function() { renderPlaylist(); });
   }
 
-  /* ============ Low-CPU Audio Engine ============ */
+  /* ============ Clean & Crackle-Free WebView Audio Engine ============ */
   function ensureAudio() {
     if (!AC) {
       var C = window.AudioContext || window.webkitAudioContext;
-      AC = new C({ latencyHint: 'interactive' });
+      // latencyHint 'playback' mencegah buffer underrun (kresek-kresek) di HP Android
+      try {
+        AC = new C({ latencyHint: 'playback' });
+      } catch (e) {
+        AC = new C();
+      }
     }
     if (AC.state === 'suspended') AC.resume();
     return AC;
@@ -823,10 +828,17 @@ window.onerror = function(msg, url, line) {
 
   function getIR(ctx) {
     if (sharedIR && sharedIR.sampleRate === ctx.sampleRate) return sharedIR;
-    var sec = 1.6, len = Math.floor(ctx.sampleRate * sec), buf = ctx.createBuffer(2, len, ctx.sampleRate);
+    var sec = 1.4, len = Math.floor(ctx.sampleRate * sec), buf = ctx.createBuffer(2, len, ctx.sampleRate);
     for (var c = 0; c < 2; c++) {
       var d = buf.getChannelData(c);
-      for (var i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.6);
+      var lp = 0;
+      for (var i = 0; i < len; i++) {
+        var fadeIn = Math.min(1, i / (ctx.sampleRate * 0.015));
+        var raw = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.8) * fadeIn;
+        // Low-pass smoothing pada IR agar reverb halus dan bebas desis kresek
+        lp = lp + 0.35 * (raw - lp);
+        d[i] = lp;
+      }
     }
     if (ctx === AC) sharedIR = buf;
     return buf;
@@ -835,7 +847,13 @@ window.onerror = function(msg, url, line) {
   function getNoise(ctx) {
     if (sharedNoise && sharedNoise.sampleRate === ctx.sampleRate) return sharedNoise;
     var len = Math.floor(ctx.sampleRate * 0.5), buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
-    for (var i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    var b0 = 0, b1 = 0;
+    for (var i = 0; i < len; i++) {
+      var w = Math.random() * 2 - 1;
+      b0 = 0.92 * b0 + w * 0.08;
+      b1 = 0.85 * b1 + b0 * 0.15;
+      d[i] = b1 * 2.5;
+    }
     if (ctx === AC) sharedNoise = buf;
     return buf;
   }
@@ -845,13 +863,35 @@ window.onerror = function(msg, url, line) {
     this.master = ctx.createGain();
     this.analyser = ctx.createAnalyser();
     this.analyser.fftSize = 128;
+
+    // Anti-aliasing low-pass filter sebelum limiter agar tidak ada frekuensi kasar
+    var antiAlias = ctx.createBiquadFilter();
+    antiAlias.type = 'lowpass';
+    antiAlias.frequency.value = 14500;
+    antiAlias.Q.value = 0.5;
+
+    // Brickwall-style Limiter mencegah clipping digital (penyebab utama kresek saat banyak nada)
     var comp = ctx.createDynamicsCompressor();
-    comp.threshold.value = -15; comp.knee.value = 12; comp.ratio.value = 4.5; comp.attack.value = .008; comp.release.value = .25;
-    this.bus = ctx.createGain(); this.dry = ctx.createGain(); this.wet = ctx.createGain();
-    var conv = ctx.createConvolver(); conv.buffer = getIR(ctx);
+    comp.threshold.value = -10;
+    comp.knee.value = 6;
+    comp.ratio.value = 12;
+    comp.attack.value = 0.003;
+    comp.release.value = 0.18;
+
+    this.bus = ctx.createGain();
+    this.bus.gain.value = 0.65; // Headroom tambahan agar summing multi-track tidak pecah
+    this.dry = ctx.createGain();
+    this.wet = ctx.createGain();
+    var conv = ctx.createConvolver();
+    conv.buffer = getIR(ctx);
+
     this.bus.connect(this.dry); this.dry.connect(this.master);
     this.bus.connect(conv); conv.connect(this.wet); this.wet.connect(this.master);
-    this.master.connect(comp); comp.connect(this.analyser); this.analyser.connect(dest);
+    this.master.connect(antiAlias);
+    antiAlias.connect(comp);
+    comp.connect(this.analyser);
+    this.analyser.connect(dest);
+
     this.noise = getNoise(ctx);
     var self = this;
     this.chains = state.tracks.map(function(t) { return self.makeChain(t); });
@@ -861,13 +901,13 @@ window.onerror = function(msg, url, line) {
   Engine.prototype.makeChain = function(t) {
     var c = this.ctx, inp = c.createGain(), out = c.createGain(), bps = [];
     if (t.inst === 'vocal') {
-      var q = [7, 9, 11], g = [1, .7, .4];
+      var q = [6, 8, 10], g = [0.85, 0.6, 0.35];
       for (var i = 0; i < 3; i++) {
         var bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = q[i];
-        var gg = c.createGain(); gg.gain.value = g[i] * 2.2;
+        var gg = c.createGain(); gg.gain.value = g[i] * 1.5;
         inp.connect(bp); bp.connect(gg); gg.connect(out); bps.push(bp);
       }
-      var raw = c.createGain(); raw.gain.value = .12; inp.connect(raw); raw.connect(out);
+      var raw = c.createGain(); raw.gain.value = .08; inp.connect(raw); raw.connect(out);
     } else inp.connect(out);
     out.connect(this.bus);
     return { inp: inp, out: out, bps: bps, inst: t.inst };
@@ -875,17 +915,17 @@ window.onerror = function(msg, url, line) {
 
   Engine.prototype.sync = function() {
     var now = this.ctx.currentTime;
-    this.master.gain.setTargetAtTime(this.S.masterMute ? 0 : this.S.master, now, .015);
-    this.dry.gain.setTargetAtTime(1 - .35 * this.S.reverb, now, .015);
-    this.wet.gain.setTargetAtTime(this.S.reverb * 1.05, now, .015);
+    this.master.gain.setTargetAtTime(this.S.masterMute ? 0 : this.S.master, now, .02);
+    this.dry.gain.setTargetAtTime(1 - .3 * this.S.reverb, now, .02);
+    this.wet.gain.setTargetAtTime(this.S.reverb * 0.85, now, .02);
     var self = this;
     this.S.tracks.forEach(function(t, i) {
       var ch = self.chains[i]; if (!ch) return;
       if (ch.inst === 'vocal' && ch.bps.length) {
         var f = VOWELS[t.vowel] || VOWELS.a;
-        ch.bps.forEach(function(bp, k) { bp.frequency.setTargetAtTime(f[k], now, .015); });
+        ch.bps.forEach(function(bp, k) { bp.frequency.setTargetAtTime(f[k], now, .02); });
       }
-      ch.out.gain.setTargetAtTime(t.mute ? 0 : t.vol, now, .015);
+      ch.out.gain.setTargetAtTime(t.mute ? 0 : t.vol, now, .02);
     });
   };
 
@@ -893,53 +933,57 @@ window.onerror = function(msg, url, line) {
     var t = this.S.tracks[ti], ch = this.chains[ti];
     if (!t || !ch || t.inst === 'audio') return;
     var c = this.ctx, f = mtof(p);
+    var safeT0 = Math.max(c.currentTime + 0.005, t0);
 
     if (t.inst === 'piano') {
       var vNorm = Math.max(0.15, Math.min(1, (vel || 95) / 127));
-      var peak = vNorm * 0.42, decay = Math.min(2.8, 1.0 + (108 - p) * 0.022);
-      var tEnd = t0 + Math.max(dur, 0.08), stop = tEnd + 0.35;
+      var peak = vNorm * 0.28, decay = Math.min(2.6, 0.9 + (108 - p) * 0.02);
+      var tEnd = safeT0 + Math.max(dur, 0.08), stop = tEnd + 0.35;
       var lpf = c.createBiquadFilter(); lpf.type = 'lowpass';
-      lpf.frequency.setValueAtTime(Math.min(10000, f * (2.5 + (t.brightness || 0.7) * 6 * vNorm)), t0);
-      lpf.frequency.exponentialRampToValueAtTime(Math.max(180, f * 1.4), t0 + decay);
+      lpf.frequency.setValueAtTime(Math.min(8500, f * (2.2 + (t.brightness || 0.65) * 5 * vNorm)), safeT0);
+      lpf.frequency.exponentialRampToValueAtTime(Math.max(160, f * 1.3), safeT0 + decay);
       var env = c.createGain();
-      env.gain.setValueAtTime(0.0001, t0); env.gain.linearRampToValueAtTime(peak, t0 + 0.008);
-      env.gain.exponentialRampToValueAtTime(Math.max(0.001, peak * 0.22), t0 + decay);
-      env.gain.setTargetAtTime(0.0001, tEnd, 0.08);
+      env.gain.setValueAtTime(0.0001, safeT0);
+      env.gain.linearRampToValueAtTime(peak, safeT0 + 0.012);
+      env.gain.exponentialRampToValueAtTime(Math.max(0.001, peak * 0.2), safeT0 + decay);
+      env.gain.setTargetAtTime(0.0001, tEnd, 0.085);
       lpf.connect(env); env.connect(ch.inp);
-      var parts = [{ type: 'triangle', mult: 1, det: -2, amp: 1.0 }, { type: 'triangle', mult: 1, det: 2, amp: 0.85 }, { type: 'sine', mult: 2, det: 0, amp: 0.42 }];
+      var parts = [{ type: 'triangle', mult: 1, det: -2, amp: 0.95 }, { type: 'triangle', mult: 1, det: 2, amp: 0.8 }, { type: 'sine', mult: 2, det: 0, amp: 0.36 }];
       parts.forEach(function(pt) {
         var osc = c.createOscillator(), pg = c.createGain();
         osc.type = pt.type; osc.frequency.value = f * pt.mult; osc.detune.value = pt.det; pg.gain.value = pt.amp;
-        osc.connect(pg); pg.connect(lpf); osc.start(t0); osc.stop(stop);
+        osc.connect(pg); pg.connect(lpf); osc.start(safeT0); osc.stop(stop);
       });
       return;
     }
 
-    var A = .05, R = .24, tEnd2 = t0 + Math.max(dur, A + .02), stop2 = tEnd2 + R + .04;
-    var uni = Math.min(3, Math.max(1, t.uni | 0));
-    var peak2 = (vel / 127) * .5 / Math.sqrt(uni);
+    var A = .055, R = .25, tEnd2 = safeT0 + Math.max(dur, A + .02), stop2 = tEnd2 + R + .05;
+    var uni = Math.min(2, Math.max(1, t.uni | 0)); // Batasi maks 2 oscillator per note agar CPU ringan & bebas kresek
+    var peak2 = (vel / 127) * .34 / Math.sqrt(uni);
     var g = c.createGain();
-    g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(peak2, t0 + A);
-    g.gain.setValueAtTime(peak2, tEnd2); g.gain.linearRampToValueAtTime(0, tEnd2 + R);
+    g.gain.setValueAtTime(0.0001, safeT0);
+    g.gain.linearRampToValueAtTime(peak2, safeT0 + A);
+    g.gain.setValueAtTime(peak2, tEnd2);
+    g.gain.linearRampToValueAtTime(0.0001, tEnd2 + R);
     g.connect(ch.inp);
     var vg = null;
     if (t.vib > 0) {
       var lfo = c.createOscillator(); lfo.frequency.value = 5.4;
-      vg = c.createGain(); vg.gain.setValueAtTime(0, t0); vg.gain.linearRampToValueAtTime(t.vib, t0 + .4);
-      lfo.connect(vg); lfo.start(t0); lfo.stop(stop2);
+      vg = c.createGain(); vg.gain.setValueAtTime(0, safeT0); vg.gain.linearRampToValueAtTime(t.vib, safeT0 + .4);
+      lfo.connect(vg); lfo.start(safeT0); lfo.stop(stop2);
     }
     for (var k = 0; k < uni; k++) {
       var o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f;
       o.detune.value = uni > 1 ? (-1 + 2 * k / (uni - 1)) * t.det : 0;
       if (vg) vg.connect(o.detune);
-      o.connect(g); o.start(t0); o.stop(stop2);
+      o.connect(g); o.start(safeT0); o.stop(stop2);
     }
-    if (t.breath > 0.05) {
+    if (t.breath > 0.04) {
       var n = c.createBufferSource(); n.buffer = this.noise; n.loop = true;
-      var ng = c.createGain(), lv = peak2 * .35 * t.breath;
-      ng.gain.setValueAtTime(0, t0); ng.gain.linearRampToValueAtTime(lv, t0 + A);
-      ng.gain.setValueAtTime(lv, tEnd2); ng.gain.linearRampToValueAtTime(0, tEnd2 + R);
-      n.connect(ng); ng.connect(ch.inp); n.start(t0); n.stop(stop2);
+      var ng = c.createGain(), lv = peak2 * .22 * t.breath;
+      ng.gain.setValueAtTime(0.0001, safeT0); ng.gain.linearRampToValueAtTime(lv, safeT0 + A);
+      ng.gain.setValueAtTime(lv, tEnd2); ng.gain.linearRampToValueAtTime(0.0001, tEnd2 + R);
+      n.connect(ng); ng.connect(ch.inp); n.start(safeT0); n.stop(stop2);
     }
   };
 
@@ -948,9 +992,15 @@ window.onerror = function(msg, url, line) {
     if (!t || !ch || t.inst !== 'audio' || !buf) return;
     var spb = 60 / this.S.bpm, clipStartBeat = t.audioOffset || 0, clipDurBeats = buf.duration / spb;
     if (clipStartBeat + clipDurBeats <= startBeat) return;
-    var src = this.ctx.createBufferSource(); src.buffer = buf; src.connect(ch.inp);
-    if (startBeat <= clipStartBeat) src.start(t0 + (clipStartBeat - startBeat) * spb, 0);
-    else src.start(t0, (startBeat - clipStartBeat) * spb);
+    var src = this.ctx.createBufferSource(); src.buffer = buf;
+    // De-click micro fade-in 8ms pada sample audio agar tidak bunyi "tek/kresek" saat mulai
+    var fade = this.ctx.createGain();
+    var startWhen = startBeat <= clipStartBeat ? (t0 + (clipStartBeat - startBeat) * spb) : t0;
+    fade.gain.setValueAtTime(0.001, startWhen);
+    fade.gain.linearRampToValueAtTime(1.0, startWhen + 0.008);
+    src.connect(fade); fade.connect(ch.inp);
+    if (startBeat <= clipStartBeat) src.start(startWhen, 0);
+    else src.start(startWhen, (startBeat - clipStartBeat) * spb);
   };
 
   Engine.prototype.scheduleMetro = function(startBeat, endBeat, t0) {
@@ -959,15 +1009,17 @@ window.onerror = function(msg, url, line) {
     for (var b = Math.ceil(startBeat); b < endBeat; b++) {
       var when = t0 + (b - startBeat) * spb, osc = this.ctx.createOscillator(), g = this.ctx.createGain();
       osc.frequency.value = (b % 4 === 0) ? 1100 : 760;
-      g.gain.setValueAtTime(0.16, when); g.gain.exponentialRampToValueAtTime(0.001, when + 0.045);
+      g.gain.setValueAtTime(0.001, when);
+      g.gain.linearRampToValueAtTime(0.14, when + 0.004);
+      g.gain.exponentialRampToValueAtTime(0.001, when + 0.045);
       osc.connect(g); g.connect(this.master); osc.start(when); osc.stop(when + 0.05);
     }
   };
 
   Engine.prototype.kill = function() {
     var now = this.ctx.currentTime;
-    this.master.gain.cancelScheduledValues(now); this.master.gain.setTargetAtTime(0, now, .02);
-    var m = this.master; setTimeout(function() { try { m.disconnect(); } catch (e) {} }, 200); this.dead = true;
+    this.master.gain.cancelScheduledValues(now); this.master.gain.setTargetAtTime(0, now, .025);
+    var m = this.master; setTimeout(function() { try { m.disconnect(); } catch (e) {} }, 250); this.dead = true;
   };
 
   function getLive() {
@@ -998,11 +1050,11 @@ window.onerror = function(msg, url, line) {
   function preview(p) {
     var eng = getLive();
     if (S.tracks[cur].inst === 'audio') return;
-    eng.noteOn(cur, p, AC.currentTime + .01, .38, 105);
+    eng.noteOn(cur, p, AC.currentTime + .01, .38, 100);
     if (recOn) {
       var targetBeat = P.playing ? qRound(P.beat) : S.cursor;
       snapshot();
-      S.tracks[cur].notes.push({ t: targetBeat, d: snap, p: p, v: 105 });
+      S.tracks[cur].notes.push({ t: targetBeat, d: snap, p: p, v: 100 });
       if (!P.playing) S.cursor += snap;
       updPos(P.playing ? P.beat : S.cursor);
       renderPlaylist(); requestDraw(); save();
@@ -1016,7 +1068,7 @@ window.onerror = function(msg, url, line) {
     if (P.playing) stopPlay();
     var eng = getLive(), end = songLen();
     P.startBeat = S.cursor >= end ? 0 : S.cursor;
-    P.t0 = AC.currentTime + .06;
+    P.t0 = AC.currentTime + .09; // Lookahead 90ms agar WebView siap & bebas kresek di awal play
     scheduleAll(eng, P.startBeat, P.t0, true);
     P.eng = eng; P.playing = true; P.beat = P.startBeat;
     var pb = $('#play'); pb.textContent = '■'; pb.classList.add('playing');
@@ -1047,7 +1099,7 @@ window.onerror = function(msg, url, line) {
           if (v > peak) peak = v;
         }
         var mf = $('#masterMeterFill');
-        if (mf) mf.style.width = Math.min(100, Math.round(peak * 240)) + '%';
+        if (mf) mf.style.width = Math.min(100, Math.round(peak * 220)) + '%';
       }
     } else {
       var g = $('#grid'), vis = g.clientWidth - KEYW, x = P.beat * pxBeat;
@@ -1722,13 +1774,13 @@ window.onerror = function(msg, url, line) {
           return '<button data-vowel="' + v + '" aria-pressed="' + (t.vowel === v) + '">' + v.toUpperCase() + '</button>';
         }).join('');
         html2 += '<div class="sec-title">Formant Vokal</div><div class="vowels">' + vb + '</div>' +
-          sl('uni', 'Unison', 1, 3, Math.min(3, t.uni), '') +
+          sl('uni', 'Unison', 1, 2, Math.min(2, t.uni), '') +
           sl('det', 'Detune', 0, 30, t.det, ' c') +
           sl('vib', 'Vibrato', 0, 60, t.vib, ' c') +
           sl('breath', 'Breath', 0, 100, Math.round(t.breath * 100), '%');
       } else if (t.inst === 'piano') {
         html2 += '<div class="sec-title">Grand Piano Tone</div>' +
-          sl('brightness', 'Brightness', 10, 100, Math.round((t.brightness || 0.7) * 100), '%');
+          sl('brightness', 'Brightness', 10, 100, Math.round((t.brightness || 0.65) * 100), '%');
       }
 
       html2 += '<div class="sec-title">Edit Channel</div>' +
