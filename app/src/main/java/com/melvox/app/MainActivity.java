@@ -11,11 +11,13 @@ import android.os.Environment;
 import android.provider.MediaStore;
 import android.util.Base64;
 import android.view.WindowManager;
+import android.webkit.ConsoleMessage;
 import android.webkit.JavascriptInterface;
 import android.webkit.PermissionRequest;
 import android.webkit.URLUtil;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
+import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
@@ -29,7 +31,6 @@ import java.io.OutputStream;
 
 public class MainActivity extends Activity {
 
-    // DAW dibundel di app/src/main/assets/index.html dan dibuka lewat domain virtual (bisa offline).
     private static final String APP_HOST = "appassets.androidplatform.net";
     private static final String APP_URL = "https://" + APP_HOST + "/assets/index.html";
 
@@ -58,8 +59,9 @@ public class MainActivity extends Activity {
         s.setDomStorageEnabled(true);
         s.setDatabaseEnabled(true);
         s.setMediaPlaybackRequiresUserGesture(false);
-        s.setAllowFileAccess(false);
-        s.setCacheMode(WebSettings.LOAD_DEFAULT);
+        s.setAllowFileAccess(true);
+        s.setAllowContentAccess(true);
+        s.setCacheMode(WebSettings.LOAD_NO_CACHE);
 
         webView.addJavascriptInterface(new DownloadBridge(), "AndroidBridge");
 
@@ -70,10 +72,18 @@ public class MainActivity extends Activity {
             }
 
             @Override
+            public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
+                if (request.isForMainFrame()) {
+                    toast("Load Error: " + error.getDescription());
+                    view.loadUrl("file:///android_asset/index.html");
+                }
+            }
+
+            @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri uri = request.getUrl();
                 String scheme = uri.getScheme();
-                if ("blob".equals(scheme) || "data".equals(scheme)) return false;
+                if ("blob".equals(scheme) || "data".equals(scheme) || "file".equals(scheme)) return false;
                 if (APP_HOST.equals(uri.getHost())) return false;
                 try {
                     startActivity(new Intent(Intent.ACTION_VIEW, uri));
@@ -83,6 +93,14 @@ public class MainActivity extends Activity {
         });
 
         webView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onConsoleMessage(ConsoleMessage consoleMessage) {
+                if (consoleMessage.messageLevel() == ConsoleMessage.MessageLevel.ERROR) {
+                    toast("JS Error (Baris " + consoleMessage.lineNumber() + "): " + consoleMessage.message());
+                }
+                return true;
+            }
+
             @Override
             public void onPermissionRequest(final PermissionRequest request) {
                 runOnUiThread(() -> {
@@ -111,7 +129,6 @@ public class MainActivity extends Activity {
             }
         });
 
-        // Cadangan: download blob/data lewat link <a download>
         webView.setDownloadListener((url, userAgent, contentDisposition, mimeType, contentLength) -> {
             String name = URLUtil.guessFileName(url, contentDisposition, mimeType);
             if (url.startsWith("blob:")) {
@@ -132,7 +149,6 @@ public class MainActivity extends Activity {
         }
     }
 
-    // Dipanggil dari JavaScript: AndroidBridge.save(dataUrl, mime, namaFile)
     public class DownloadBridge {
         @JavascriptInterface
         public void save(String dataUrl, String mime, String fileName) {
