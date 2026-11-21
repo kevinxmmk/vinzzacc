@@ -1,4 +1,3 @@
-
 name: Build Melvox APK
 
 on:
@@ -26,12 +25,6 @@ jobs:
         with:
           gradle-version: 8.7
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android SDK 34
-        run: sdkmanager "platforms;android-34" "build-tools;34.0.0"
-
       - name: Build Debug APK
         run: gradle assembleDebug
 
@@ -40,3 +33,4 @@ jobs:
         with:
           name: Melvox-APK
           path: app/build/outputs/apk/debug/*.apk
+          
