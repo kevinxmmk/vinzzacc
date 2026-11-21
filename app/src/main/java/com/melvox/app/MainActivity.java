@@ -1,99 +1,105 @@
-package com.vinzzbeatz.studio
+package com.vinzzbeatz.studio;
 
-import android.annotation.SuppressLint
-import android.os.Build
-import android.os.Bundle
-import android.view.View
-import android.view.WindowManager
-import android.webkit.WebChromeClient
-import android.webkit.WebSettings
-import android.webkit.WebView
-import android.webkit.WebViewClient
-import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.WindowInsetsControllerCompat
+import android.annotation.SuppressLint;
+import android.os.Build;
+import android.os.Bundle;
+import android.view.View;
+import android.view.WindowManager;
+import android.webkit.WebChromeClient;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 
-class MainActivity : AppCompatActivity() {
+public class MainActivity extends AppCompatActivity {
 
-    private lateinit var webView: WebView
+    private WebView webView;
 
     @SuppressLint("SetJavaScriptEnabled")
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
 
-        WindowCompat.setDecorFitsSystemWindows(window, false)
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            window.attributes.layoutInDisplayCutoutMode =
-                WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            getWindow().getAttributes().layoutInDisplayCutoutMode =
+                WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
         }
 
-        webView = WebView(this)
-        setContentView(webView)
+        webView = new WebView(this);
+        setContentView(webView);
 
-        val settings = webView.settings
-        settings.javaScriptEnabled = true
-        settings.domStorageEnabled = true
-        settings.databaseEnabled = true
-        settings.allowFileAccess = true
-        settings.allowContentAccess = true
-        settings.mediaPlaybackRequiresUserGesture = false
-        settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+        WebSettings settings = webView.getSettings();
+        settings.setJavaScriptEnabled(true);
+        settings.setDomStorageEnabled(true);
+        settings.setDatabaseEnabled(true);
+        settings.setAllowFileAccess(true);
+        settings.setAllowContentAccess(true);
+        settings.setMediaPlaybackRequiresUserGesture(false);
+        settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
 
-        webView.webViewClient = WebViewClient()
-        webView.webChromeClient = WebChromeClient()
+        webView.setWebViewClient(new WebViewClient());
+        webView.setWebChromeClient(new WebChromeClient());
 
-        ViewCompat.setOnApplyWindowInsetsListener(webView) { _, _ ->
-            WindowInsetsCompat.CONSUMED
-        }
+        ViewCompat.setOnApplyWindowInsetsListener(webView, (v, insets) -> WindowInsetsCompat.CONSUMED);
 
-        enableImmersiveFullScreen()
-        webView.loadUrl("file:///android_asset/index.html")
+        enableImmersiveFullScreen();
+        webView.loadUrl("file:///android_asset/index.html");
     }
 
-    override fun onWindowFocusChanged(hasFocus: Boolean) {
-        super.onWindowFocusChanged(hasFocus)
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
         if (hasFocus) {
-            enableImmersiveFullScreen()
+            enableImmersiveFullScreen();
         }
     }
 
-    override fun onResume() {
-        super.onResume()
-        enableImmersiveFullScreen()
-        webView.onResume()
+    @Override
+    protected void onResume() {
+        super.onResume();
+        enableImmersiveFullScreen();
+        webView.onResume();
     }
 
-    override fun onPause() {
-        webView.onPause()
-        super.onPause()
+    @Override
+    protected void onPause() {
+        webView.onPause();
+        super.onPause();
     }
 
-    private fun enableImmersiveFullScreen() {
-        val controller = WindowInsetsControllerCompat(window, window.decorView)
-        controller.hide(WindowInsetsCompat.Type.systemBars())
-        controller.systemBarsBehavior =
+    private void enableImmersiveFullScreen() {
+        WindowInsetsControllerCompat controller =
+            new WindowInsetsControllerCompat(getWindow(), getWindow().getDecorView());
+        controller.hide(WindowInsetsCompat.Type.systemBars());
+        controller.setSystemBarsBehavior(
             WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        );
 
-        @Suppress("DEPRECATION")
-        window.decorView.systemUiVisibility = (
-            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-                or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                or View.SYSTEM_UI_FLAG_FULLSCREEN
-            )
+        @SuppressWarnings("deprecation")
+        int flags = View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+            | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+            | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+            | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+            | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+            | View.SYSTEM_UI_FLAG_FULLSCREEN;
+
+        @SuppressWarnings("deprecation")
+        View decor = getWindow().getDecorView();
+        decor.setSystemUiVisibility(flags);
     }
 
-    @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
-        if (webView.canGoBack()) {
-            webView.goBack()
+    @Override
+    @SuppressWarnings("deprecation")
+    public void onBackPressed() {
+        if (webView != null && webView.canGoBack()) {
+            webView.goBack();
         } else {
-            @Suppress("DEPRECATION")
-            super.onBackPressed()
+            super.onBackPressed();
         }
     }
 }
